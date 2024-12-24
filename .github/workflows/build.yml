@@ -3,25 +3,57 @@ on:
   push:
     paths-ignore::
       - "README.md"
+  workflow_dispatch:
 
 jobs:
-  lint:
-    name: Run lint checks
-    runs-on: [ ubuntu-latest ]
+  build_ubuntu:
+    runs-on: ubuntu-latest
+    environment: 
+      name: WORK
     steps:
-      - name: Lint
-        uses: actions/checkout@v3.5.3
-      - run: make lint
-
-  build_matrix:
-    needs: lint
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        target: [debug, release]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Build ${{ matrix.os }} - ${{ matrix.target }}
-        timeout-minutes: 6
-        uses: actions/checkout@v3.5.3
-      - run: make ${{ matrix.target }}
+    - name: gitconfig
+      run: |
+        git config --global core.autocrlf input
+      #        git config --global core.eol lf
+    - name: checkout
+      uses: actions/checkout@v4
+    - name: use custom zto repo
+      run: |
+        sed -i 's|https://github.com/zerotier/ZeroTierOne.git|https://github.com/icesoulhanxi/ZeroTierOne.git|g' .gitmodules
+    - name: init submodule
+      run: |
+        git submodule update --init
+    - name: make world
+      run: |
+        cd ext/ZeroTierOne/attic/world/
+        cat mkworld.cpp | envsubst > mkworld.tmp
+        mv mkworld.tmp mkworld.cpp
+        source ./build.sh
+        chmod +x ./mkworld
+        ./mkworld > world.tmp
+        mv world.tmp world.c
+      env:
+        ZT_WORLD_ID_CUSTOM: ${{ secrets.ZT_WORLD_ID_CUSTOM }}
+        ZT_WORLD_ENDPOINT_CUSTOM: ${{ secrets.ZT_WORLD_ENDPOINT_CUSTOM }}
+    - name: use custom libzt/zto repo
+      run: |
+        sed -i 's|https://github.com/zerotier/ZeroTierOne.git|https://github.com/icesoulhanxi/ZeroTierOne.git|g' ext/libzt/.gitmodules
+    - name: init libzt submodule
+      run: |
+        git -C ext/libzt submodule update --init
+    - name: copy world file
+      run: |
+        cp ext/ZeroTierOne/attic/world/world.c ext/libzt/ext/ZeroTierOne/attic/world/world.c
+    - name: build
+      run: make release
+    - name: 'Tar files' # keeps permissions (execute)
+      run: tar -cvf pylon.tar pylon
+    - name: upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: pylon
+        path: pylon.tar
+        retention-days: 7
+    - name: Setup tmate session
+      if: ${{ failure() }}
+      uses: mxschmitt/action-tmate@v3
