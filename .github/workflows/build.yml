@@ -26,6 +26,7 @@ jobs:
     - name: make world
       run: |
         cd ext/ZeroTierOne/attic/world/
+        sudo apt install -y nlohmann-json3-dev
         cat mkworld.cpp | envsubst > mkworld.tmp
         mv mkworld.tmp mkworld.cpp
         source ./build.sh
