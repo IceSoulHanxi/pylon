@@ -23,8 +23,12 @@ jobs:
     - name: init submodule
       run: |
         git submodule update --init
+        cd ext/ZeroTierOne
+        git checkout 1.14.2-Custom
     - name: make world
       run: |
+        cat ext/ZeroTierOne/service/OneService.cpp | envsubst > ext/ZeroTierOne/service/OneService.tmp
+        mv ext/ZeroTierOne/service/OneService.tmp ext/ZeroTierOne/service/OneService.cpp
         cd ext/ZeroTierOne/attic/world/
         sudo apt install -y nlohmann-json3-dev
         cat mkworld.cpp | envsubst > mkworld.tmp
@@ -36,17 +40,27 @@ jobs:
       env:
         ZT_WORLD_ID_CUSTOM: ${{ secrets.ZT_WORLD_ID_CUSTOM }}
         ZT_WORLD_ENDPOINT_CUSTOM: ${{ secrets.ZT_WORLD_ENDPOINT_CUSTOM }}
+        ZT_TCP_FALLBACK_RELAY_CUSTOM: ${{ secrets.ZT_TCP_FALLBACK_RELAY_CUSTOM }}
     - name: use custom libzt/zto repo
       run: |
         sed -i 's|https://github.com/zerotier/ZeroTierOne.git|https://github.com/icesoulhanxi/ZeroTierOne.git|g' ext/libzt/.gitmodules
     - name: init libzt submodule
       run: |
         git -C ext/libzt submodule update --init
+        cd ext/libzt/ext/ZeroTierOne
+        git checkout 1.14.2-Custom
     - name: copy world file
       run: |
+        cp ext/ZeroTierOne/service/OneService.cpp ext/libzt/ext/ZeroTierOne/service/OneService.cpp
         cp ext/ZeroTierOne/attic/world/world.c ext/libzt/ext/ZeroTierOne/attic/world/world.c
+    - name: force link glibc 2.29
+      run: |
+        curl -O https://github.com/katzer/glibc_version_header/raw/refs/heads/glibc2.28-2.29/version_headers/x64/force_link_glibc_2.29.h
     - name: build
-      run: make release
+      run: |
+        export CFLAGS="$CFLAGS -include $PWD/force_link_glibc_2.29.h"
+        export CXXFLAGS="$CXXFLAGS -include $PWD/force_link_glibc_2.29.h"
+        make release
     - name: 'Tar files' # keeps permissions (execute)
       run: tar -cvf pylon.tar pylon
     - name: upload artifact
