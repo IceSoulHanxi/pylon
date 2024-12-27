@@ -53,6 +53,9 @@ jobs:
       run: |
         cp ext/ZeroTierOne/service/OneService.cpp ext/libzt/ext/ZeroTierOne/service/OneService.cpp
         cp ext/ZeroTierOne/attic/world/world.c ext/libzt/ext/ZeroTierOne/attic/world/world.c
+    - name: fix typos
+      run: |
+        sed -i 's|ZT_PING_CHECK_INVERVAL|ZT_PING_CHECK_INTERVAL|g' ext/libzt/src/NodeService.cpp
     - name: force link glibc 2.29
       run: |
         curl -O https://github.com/katzer/glibc_version_header/raw/refs/heads/glibc2.28-2.29/version_headers/x64/force_link_glibc_2.29.h
